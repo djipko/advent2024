@@ -41,46 +41,31 @@ class Disk:
     def find_empty_for(self, s: Span) -> Span | None:
         e = None
         idx = self.empty_spans.bisect_left(Span(s.len, -1, None))
+        min_pos = s.pos
         for maybe_e in self.empty_spans[idx:]:
-            if maybe_e.len >= s.len and maybe_e.pos < s.pos:
+            if maybe_e.pos < min_pos:
                 e = maybe_e
-                self.empty_spans.remove(e)
-                break
+                min_pos = maybe_e.pos
+        if e:
+            self.empty_spans.remove(e)
         return e
 
     def fit_into(self, empty: Span, s: Span):
-        s_next = s.next
-        s_prev = s.prev
-
-        if empty.prev:
-            empty.prev.next = s
-        if empty.next:
-            empty.next.prev = s
-        s.prev = empty.prev
-        s.next = empty.next
-
-        if s_prev:
-            s_prev.next = empty
-        if s_next:
-            s_next.prev = empty
-        empty.prev = s_prev
-        empty.next = s_next
-        empty.pos, s.pos = s.pos, empty.pos
-
         if empty.len > s.len:
-            new_empty = Span(empty.len - s.len, s.pos + s.len, None)
-            new_empty.prev = s
-            new_empty.next = s.next
-            s.next = new_empty
+            new_empty = Span(empty.len - s.len, empty.pos + s.len, None)
+            new_empty.prev = empty
+            new_empty.next = empty.next
+            empty.next = new_empty
             new_empty.next.prev = new_empty
             self.empty_spans.add(new_empty)
-        # Reduce the size of the old empty that is now moved
+        empty.f_id = s.f_id
+        s.f_id = None
         empty.len = s.len
 
     def validate_pos(self):
         cur = self.start
         while cur.next:
-            assert cur.next.pos == cur.pos + cur.len
+            assert cur.next.pos == cur.pos + cur.len, f"failed at {cur.pos}"
             cur = cur.next
 
     def move_span(self, s: Span):
